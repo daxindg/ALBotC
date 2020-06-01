@@ -1,0 +1,14 @@
+{
+    "featuresDir": "/home/daxindg/data/Projects/AzurLane/ALBotC/features",
+    "deviceType": "e",
+    "combat": {
+        "enabled": true,
+
+        "stage": "E-C2",
+        "enemyList": ["boss","e0", "e1", "e2", "cl", "dd", "cv"],
+        "beforeBoss": 4,
+        "defaultFleet": 1,
+        "bossFleet": 2,
+        "withdrawAfter": 6
+    }
+}
