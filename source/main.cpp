@@ -19,9 +19,9 @@ using namespace std;
 
 using json = nlohmann::json;
 
-extern unordered_map<std::string, std::unordered_map<std::string, cv::Mat>> features;
-extern unordered_map<std::string, std::unordered_map<std::string, std::function<void(Pos)>>> processer;
-
+extern std::unordered_map<std::string, std::unordered_map<std::string, cv::Mat>> features;
+extern std::unordered_map<std::string, std::function<void(Pos)>> processer;
+extern std::vector<std::string> events;
 json config;
 
 
@@ -30,7 +30,7 @@ int _exit = 0;
 void config_init();
 void init() {
 
-    ifstream ifs("/home/daxindg/data/Projects/AzurLane/ALBotC/config.json");
+    ifstream ifs("/home/daxindg/Projects/ALBotC/config.json");
     config = json::parse(ifs);
     config_init();
     ifs.close();
@@ -57,41 +57,51 @@ void init() {
 
 
 int wtfcnt = 0;
-std::pair<Pos, std::pair<std::string, std::string>> scan() {
+std::pair<Pos, std::string> scan() {
     Screen::getInstance().update();
 
-    for (auto k1 : {"message", "at"}) {
-        for (auto &[k2, val] : features[k1]) {
-            auto pos = Screen::find(val, 0);
-            if (pos.first == 0) continue;
-            wtfcnt = 0;
-            return {pos, {k1, k2}};
+    // for (auto k1 : {"message", "at"}) {
+    //     for (auto &[k2, val] : features[k1]) {
+    for (auto &k2 : events) {
+        cv::Mat val;
+        for (auto k1 : {"message", "at"}) {
+            if (features[k1].find(k2) != features[k1].end()) {
+                val = features[k1][k2];
+                break;
+            }
         }
+        auto pos = Screen::find(val, 0);
+        if (pos.first == 0) continue;
+        wtfcnt = 0;
+        return {pos, k2};
     }
     wtfcnt++;
     if (wtfcnt > 50) exit(0);
-    return {{0, 0}, {"nothing", "found"}};
+    return {{0, 0}, "nothing_found"};
 }
 
-void proc(std::pair<Pos, std::pair<std::string, std::string>> ppss) {
-    auto [p, pss] = ppss;
+void proc(std::pair<Pos, std::string> ps) {
+    auto [p, s] = ps;
 
-    auto [a, b] = pss;
-
-    LOGI(" proc > %s %s .", a.c_str(), b.c_str());
+    LOGI(" proc > %s.", s.c_str());
     
     
-    if (_exit == 1 && b == "stage_info") {
+    if (_exit == 1 && s == "stage_info") {
         exit(0);
     }
     else if (_exit >= 2) {
         LOGI("Keyboard Interrupted, exiting.");
         exit(0);
     }
-    processer[a][b](p);
+    processer[s](p);
 }
 
 void loop() {
+    // for (auto k1 : {"message", "at"}) {
+    //     for (auto &[k2, val] : features[k1]) {
+    //         std::cout << k2 << std::endl;
+    //     }
+    // }
     while (true) {
         proc(scan());
         sleep(2s);

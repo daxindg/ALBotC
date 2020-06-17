@@ -43,8 +43,17 @@ std::vector<char> _exec(const char* cmd) {
         while ((sz = fread(buffer.data(), sizeof buffer[0], buffer.size(), pipe.get()))) {
             std::move(buffer.begin(), buffer.begin() + sz, std::back_inserter(res));
         }
+        
     }
-    return res;
+    if (res.empty()) return res;
+    int l = res.size();
+    std::vector<char> res0;
+    res0.push_back(res[0]);
+    for (int i = 1; i < l; i++) {
+        if (res[i] == 10 && res[i - 1] == 13) res0.pop_back();
+        res0.push_back(res[i]);
+    }
+    return res0;
 }
 
 std::vector<char> _exec(std::string cmd) {
