@@ -1,9 +1,13 @@
 #include <algorithm>
 #include <iostream>
 #include <random>
-
 #include <opencv2/xfeatures2d.hpp>
 
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
+#undef min
+#undef max
 #include "log_def.h"
 #include "utils.hpp"
 
@@ -11,9 +15,9 @@ Pos operator+(Pos a, int b) {
     return Pos(a.first + b, a.second + b);
 }
 Pos & Pos::tap() {
-    extern const char deviceType;
+    extern char device_type;
     char cmd[100]{0};
-    std::snprintf(cmd, sizeof cmd, "adb -%c shell input tap %d %d", deviceType, first, second);
+    std::snprintf(cmd, sizeof cmd, "adb -%c shell input tap %d %d", device_type, first, second);
     LOGD("      result of cmd (%s) > %s", cmd, exec(cmd).c_str());
     return *this;
 }
@@ -30,21 +34,96 @@ Pos & Pos::randomTap(int maxOffset) {
     return *this;
 }
 
+#ifdef _MSC_VER
+void ExecCmd(
+    const char* cmd,              // [in] command to execute
+    std::vector<char> &res
+)
+{
+    HANDLE hPipeRead, hPipeWrite;
+
+    SECURITY_ATTRIBUTES saAttr = { sizeof(SECURITY_ATTRIBUTES) };
+    saAttr.bInheritHandle = TRUE; // Pipe handles are inherited by child process.
+    saAttr.lpSecurityDescriptor = NULL;
+
+    // Create a pipe to get results from child's stdout.
+    if (!CreatePipe(&hPipeRead, &hPipeWrite, &saAttr, 0))
+        return;
+
+    STARTUPINFOA si = { sizeof(STARTUPINFOA) };
+    si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
+    si.hStdOutput = hPipeWrite;
+    si.hStdError = hPipeWrite;
+    si.wShowWindow = SW_HIDE; // Prevents cmd window from flashing.
+                              // Requires STARTF_USESHOWWINDOW in dwFlags.
+
+    PROCESS_INFORMATION pi = { 0 };
+
+    BOOL fSuccess = CreateProcessA(NULL, (LPSTR)cmd, NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+    if (!fSuccess)
+    {
+        CloseHandle(hPipeWrite);
+        CloseHandle(hPipeRead);
+        return;
+    }
+
+    bool bProcessEnded = false;
+    for (; !bProcessEnded;)
+    {
+        // Give some timeslice (50 ms), so we won't waste 100% CPU.
+        bProcessEnded = WaitForSingleObject(pi.hProcess, 50) == WAIT_OBJECT_0;
+
+        // Even if process exited - we continue reading, if
+        // there is some data available over pipe.
+        for (;;)
+        {
+            char buf[1024];
+            DWORD dwRead = 0;
+            DWORD dwAvail = 0;
+
+            if (!::PeekNamedPipe(hPipeRead, NULL, 0, NULL, &dwAvail, NULL))
+                break;
+
+            if (!dwAvail) // No data available, return
+                break;
+
+            if (!::ReadFile(hPipeRead, buf, std::min(sizeof(buf) - 1, (unsigned long long)dwAvail), &dwRead, NULL) || !dwRead)
+                // Error, the child process might ended
+                break;
+
+            std::move(buf, buf + dwRead, std::back_inserter(res));
+        }
+    } //for
+
+    CloseHandle(hPipeWrite);
+    CloseHandle(hPipeRead);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+} //ExecCmd
+#endif
+
 std::vector<char> _exec(const char* cmd) {
     std::array<char, 256> buffer;
+    std::fill(buffer.begin(), buffer.end(), 0);
     std::vector<char> res;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+#ifndef _MSC_VER
+    std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd, "r"), _pclose);
     if (!pipe) {
         LOGE("          Failed to execute command : %s", cmd);
         // throw;
     }
     else {
         size_t sz = 0;
-        while ((sz = fread(buffer.data(), sizeof buffer[0], buffer.size(), pipe.get()))) {
+        while ((sz = fread(buffer.data(), sizeof buffer[0], 1, pipe.get()))) {
             std::move(buffer.begin(), buffer.begin() + sz, std::back_inserter(res));
         }
         
     }
+#else
+    ExecCmd(cmd, res);
+#endif
+
+
     if (res.empty()) return res;
     int l = res.size();
     std::vector<char> res0;

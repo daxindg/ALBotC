@@ -15,6 +15,7 @@
 
 // using namespace cv;
 using namespace std::chrono_literals;
+
 using namespace std;
 
 using json = nlohmann::json;
@@ -26,16 +27,22 @@ json config;
 
 
 
-int _exit = 0;
+int should_exit = 0;
 void config_init();
-void init() {
+void init(int argc, char** argv) {
+#ifdef _MSC_VER
+    string path = R"(D:\Projects\ALBotC/config.json)";
 
-    ifstream ifs("/home/daxindg/Projects/ALBotC/config.json");
+#else
+    string path = "/home/daxindg/data/Projects/ALBotC/config.json";
+#endif
+    if (argc > 1) path = argv[1];
+    ifstream ifs(path);
     config = json::parse(ifs);
     config_init();
     ifs.close();
 
-    for (auto &p : std::filesystem::recursive_directory_iterator(config["featuresDir"])) {
+    for (auto &p : std::filesystem::recursive_directory_iterator(config["featuresDir"].get<string>())) {
   
         if (p.is_directory()) continue;
         auto fi = p.path().parent_path().filename().string();
@@ -47,11 +54,11 @@ void init() {
     }
 
     signal(SIGINT, [](int){
-        if (!config["combat"]["enabled"]) _exit++;
-        if (_exit == 0) {
+        if (!config["combat"]["enabled"]) should_exit++;
+        if (should_exit == 0) {
             LOGI("Keyboard Interrupted, wait for current combat end");
         }
-        _exit++;
+        should_exit++;
     });
 }
 
@@ -86,10 +93,10 @@ void proc(std::pair<Pos, std::string> ps) {
     LOGI(" proc > %s.", s.c_str());
     
     
-    if (_exit == 1 && s == "stage_info") {
+    if (should_exit == 1 && s == "stage_info") {
         exit(0);
     }
-    else if (_exit >= 2) {
+    else if (should_exit >= 2) {
         LOGI("Keyboard Interrupted, exiting.");
         exit(0);
     }
@@ -108,11 +115,11 @@ void loop() {
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
 
-    init();
+    init(argc, argv);
 
     loop();
-
+    cin.get();
     return 0;
 }

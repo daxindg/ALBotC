@@ -15,7 +15,7 @@ using json = nlohmann::json;
 extern json config;
 
 // Program settings
-char deviceType; // 'd' for usb device, 'e' for emulator
+char device_type; // 'd' for usb device, 'e' for emulator
 // Combat settings
 bool enableCombat;
 string stage;
@@ -26,7 +26,7 @@ int beforeBoss;
 int withdrawAfter;
 
 void config_init(){
-    deviceType    = config["deviceType"].get<string>()[0];
+    device_type    = config["deviceType"].get<string>()[0];
     enableCombat  = config["combat"]["enabled"].get<bool>();
     stage         = config["combat"]["stage"].get<string>();
     enemyList     = config["combat"]["enemyList"].get<vector<string>>();
@@ -59,7 +59,7 @@ Screen::getScreen(int screenColor, int forceUpdate) {
 Screen &
 Screen::update(int screenColor) {
     char cmd[100]{0};
-    std::snprintf(cmd, sizeof cmd, "adb -%c shell screencap -p", deviceType);
+    std::snprintf(cmd, sizeof cmd, "adb -%c shell screencap -p", device_type);
     screen = cv::imdecode(_exec(cmd),  screenColor);
     return *this;
 }
@@ -68,7 +68,7 @@ Screen::update(int screenColor) {
 void
 Screen::swipe(Pos p1, Pos p2, int duration){
     char cmd[100]{0};
-    std::snprintf(cmd, sizeof cmd, "adb -%c shell input swipe %d %d %d %d %d", deviceType, p1.first, p1.second, p2.first, p2.second, duration);
+    std::snprintf(cmd, sizeof cmd, "adb -%c shell input swipe %d %d %d %d %d", device_type, p1.first, p1.second, p2.first, p2.second, duration);
     exec(cmd);
 }
 
@@ -160,7 +160,9 @@ weigh_anchor_in_select_fleet, switch_fleet,
 
 event_entrance,
 
-filter, all, n, r, sr
+filter, all_ra, n, r, sr, all_idx, dd, cl, ch, bb, _cv, gz, sb, oth,
+
+close_announce
 };
 
 
@@ -175,7 +177,10 @@ std::unordered_map<kpNames, Pos> keyPoints = {
 
     {event_entrance, Pos(1800, 300)},
 
-    {filter, Pos(1700, 40)}, {all, Pos(530, 690)}, {n, Pos(760, 690)}, {r, Pos(1000, 690)}, {sr, Pos(1240, 690)},
+    {filter, Pos(1700, 40)}, {all_ra, Pos(530, 690)}, {n, Pos(760, 690)}, {r, Pos(1000, 690)}, {sr, Pos(1240, 690)},
+    {all_idx, Pos(520, 290)}, {dd, Pos(1240, 290)}, {cl, Pos(1470, 290)}, {ch, Pos(1700, 290)}, {bb, Pos(520, 380)}, {_cv, Pos(760, 380)}, {gz, Pos(1000, 380)},
+    {sb, Pos(1240, 380)}, {oth, Pos(1480, 380)},
+    {close_announce, Pos(1800, 90)}
 };
 
 
@@ -188,21 +193,23 @@ std::unordered_map<kpNames, Pos> keyPoints = {
 
 void swipe(Pos o, Pos d, int duration=600) {
     char cmd[50];
-    snprintf(cmd, sizeof cmd, "adb -%c shell input swipe %d %d %d %d %d", deviceType, o.first, o.second, o.first + d.first, o.second + d.second, duration);
+    snprintf(cmd, sizeof cmd, "adb -%c shell input swipe %d %d %d %d %d", device_type, o.first, o.second, o.first + d.first, o.second + d.second, duration);
     exec(cmd);
 }
 
 std::unordered_map<std::string, std::function<void(void)>> preAdjust{
     {"7-2", [](){swipe({428, 316},{1034, 406});}},
+    {"5-1", [](){swipe({428, 316},{1060, 370});}},
+    {"5-4", [](){swipe({428, 316},{870, 300});}},
     {"8-2", [](){swipe({428, 316},{945, 294});}},
 
 
-    {"E-C2", [](){swipe({428, 316},{1000, 431});}},
+    {"E-C2", [](){swipe({428, 316},{1370, 421});}},
     {"E-C3", [](){swipe({428, 316},{659, 311});}},
-    {"E-A3", [](){swipe({428, 316},{1199, 535});}},
-    {"E-B1", [](){swipe({550, 310},{1100, 500});}},
+    {"E-A3", [](){swipe({428, 316},{975, 475});}},
+    {"E-B1", [](){swipe({550, 310},{1230, 550});}},
     {"E-B3", [](){swipe({582, 292},{534, 550});}},
-    {"E-SP3", [](){swipe({582, 292},{1600, 600});}},
+    {"E-SP3", [](){swipe({582, 292},{950, 440});}},
     {"default", [](){
         swipe({428, 316},{515, 450});
     }}
@@ -266,6 +273,8 @@ std::vector<std::string> events{
 "drop_r",
 "drop_sr",
 "drop_ssr",
+
+"announce",
 };
 
 std::unordered_map<std::string, std::function<void(Pos)>> processer{
@@ -352,7 +361,7 @@ std::unordered_map<std::string, std::function<void(Pos)>> processer{
 
     {"combat", [](Pos withdraw){
         state.print();
-        static bool f0 = false;
+        // static bool f0 = false;
         if (!state.inCombat) { // init state , start combat
 
             state.clear();
@@ -368,7 +377,7 @@ std::unordered_map<std::string, std::function<void(Pos)>> processer{
             }
 
             adjustToDefaultPosition();
-            f0 = true;
+            // f0 = true;
         }
         
         if (state.battleCount >= withdrawAfter) { // reach max battle count.
@@ -406,7 +415,7 @@ std::unordered_map<std::string, std::function<void(Pos)>> processer{
         //     state.enemy.emplace_back(920, 143);
         //     state.enemy.emplace_back(1260, 486);
         // }
-        f0 = false;
+        // f0 = false;
         if (state.enemy.empty()) {
             for (std::string t : _enemyList) {
                 std::vector<Pos> res = Screen::findAll(features["enemy"][t], 0);
@@ -521,9 +530,12 @@ std::unordered_map<std::string, std::function<void(Pos)>> processer{
 
         keyPoints[filter].randomTap();
         sleep(500ms);
-        keyPoints[all].randomTap(10);
-        keyPoints[n].randomTap(10);
-        keyPoints[r].randomTap(10);
+        for (auto x : { all_ra, n, r, all_idx, dd, cl, ch, bb, /*_cv,*/ gz, sb, oth }) {
+            keyPoints[x].randomTap(10);
+        }
+        //keyPoints[all].randomTap(10);
+        //keyPoints[n].randomTap(10);
+        //keyPoints[r].randomTap(10);
 
         sleep(500ms);
 
@@ -591,6 +603,9 @@ std::unordered_map<std::string, std::function<void(Pos)>> processer{
     {"drop_r", [](Pos pos){pos.randomTap();}},
     {"drop_sr", [](Pos pos){pos.randomTap();}},
     {"drop_ssr", [](Pos pos){pos.randomTap();}},
+    { "announce", [](Pos) {
+        keyPoints[close_announce].randomTap();
+    } },
     {"nothing_found", [](Pos){
         if (!state.inCombat) keyPoints[back].randomTap(5);
     }}

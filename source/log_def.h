@@ -2,22 +2,29 @@
 #define LOG_DEF_H 1
 #include <stdio.h>
 
-#ifdef DEBUG
+#ifdef MYDBG
 #include <chrono>
 #endif
 
 /*          Colors           */
+#ifndef _MSC_VER
 #define RED "\e[1;31m"
 #define BLU "\e[1;34m"
 #define YEL "\e[1;33m"
 #define PUR "\e[1;35m"
+#else
+#define RED ""
+#define BLU ""
+#define YEL ""
+#define PUR ""
+#endif
 
 /*          Log Printer      */
 #define LOGI(s, ...) fprintf(stderr,BLU "[INFO] " s "\n", ##__VA_ARGS__) 
 #define LOGW(s, ...) fprintf(stderr,YEL "[WARNING] " s "\n", ##__VA_ARGS__) 
 #define LOGE(s, ...) fprintf(stderr,RED "[ERROR] " s "\n", ##__VA_ARGS__) 
 
-#ifdef DEBUG
+#ifdef MYDBG
 #define LOGD(s, ...) fprintf(stderr,PUR "[DEBUG] " s "\n", ##__VA_ARGS__) 
 
 /*          Time test        */

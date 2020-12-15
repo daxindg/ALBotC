@@ -1,14 +1,14 @@
 {
-    "featuresDir": "/home/daxindg/Projects/ALBotC/features",
+    "featuresDir": "D:/Projects/ALBotC/features",
     "deviceType": "e",
     "combat": {
         "enabled": true,
 
         "stage": "E-SP3",
-        "enemyList": ["boss","ee", "cl", "dd", "cv"],
+        "enemyList": ["boss","e_hms0", "cl", "dd", "cv"],
         "beforeBoss": 5,
         "defaultFleet": 1,
         "bossFleet": 2,
-        "withdrawAfter": 7
+        "withdrawAfter": 6
     }
 }
